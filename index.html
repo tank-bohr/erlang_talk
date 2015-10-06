@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible" />
+    <meta content="width=1024, user-scalable=no" name="viewport" />
+    <title>Erlang talk</title>
+    <link href="vendor/deck.js/core/deck.core.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/extensions/goto/deck.goto.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/extensions/menu/deck.menu.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/extensions/navigation/deck.navigation.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/extensions/status/deck.status.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/extensions/scale/deck.scale.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/themes/style/swiss.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/themes/transition/horizontal-slide.css" media="screen" rel="stylesheet" />
+    <link href="vendor/deck.js/core/print.css" media="print" rel="stylesheet" />
+    <script src="vendor/deck.js/modernizr.custom.js"></script>
+  </head>
+  <body>
+    <div class="deck-container">
+      <section class="slide" id="title">
+        <h1>
+          Байки из большого erlang-проекта
+        </h1>
+      </section>
+      <section class="slide" id="big_erlang_project">
+        <h2>
+          Большой erlang-проект
+        </h2>
+        <ul>
+          <li>
+            130 модулей
+          </li>
+          <li>
+            25k loc
+          </li>
+          <li>
+            500 нод
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="riak_core_compare">
+        <h2>
+          Для сравнения riak-core
+        </h2>
+        <ul>
+          <li>
+            96 модулей
+          </li>
+          <li>
+            35k loc<sup>*</sup>
+          </li>
+        </ul>
+        <hr />
+        <p>
+          <sup>*</sup>вместе с комментами
+        </p>
+      </section>
+      <section class="slide" id="baika1">
+        <h2>
+          Первая байка
+        </h2>
+        <p>
+          <em>Задача:&nbsp</em>есть система управления конфигами, которая должна&nbspавтоматически подхватывать изменения файлов, парсить их, загружать&nbspданные в ets и оповещать об изменениях заинтересованные процессы&nbsp(тех, кто подписался на изменения)
+        </p>
+        <p>
+          <em>Проблема:&nbsp</em>При падении процесса, который хранит данные о подписчиках, ets&nbspпересоздается и информация о подписчиках теряется навсегда.&nbspТаким образом подписчики никогда не узнают об изменениях конфига
+        </p>
+      </section>
+      <section class="slide" id="baika1_solution">
+        <h2>
+          Решение
+        </h2>
+        <ul>
+          <li>
+            опция hire
+          </li>
+          <li>
+            первое желание - сделать наследником супервизор
+          </li>
+          <li>
+            но у вас не получится - супервизор не может обработать ETS-TRANSFER
+          </li>
+          <li>
+            нужен отдельный процесс специально для наследования ets
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="beruang">
+        <h2>
+          Beruang
+        </h2>
+        <img src="img/beruang.png" /><a href="https://github.com/SputnikTeam/beruang">https://github.com/SputnikTeam/beruang</a>
+      </section>
+      <section class="slide" id="baika2">
+        <h2>
+          Байка вторая. Про логгер
+        </h2>
+        <ul>
+          <li>
+            Самописный логгер
+          </li>
+          <li>
+            На макросах
+          </li>
+          <li>
+            Умел писать в файл и в скрайб
+          </li>
+          <li>
+            Но не одновременно
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="an_hero">
+        <img src="img/rescuerangers2.gif" />
+      </section>
+      <section class="slide" id="lager_ftw">
+        <h2>
+          Lager FTW
+        </h2>
+        <ul>
+          <li>
+            лагер используют почти все
+          </li>
+          <li>
+            parse_tranform вместо макросов
+          </li>
+          <li>
+            может писать сразу в несколько бэкендов
+          </li>
+          <li>
+            не умеет писать в скрайб. не беда, напишем&nbsp<a href="https://github.com/SputnikTeam/lager_scribe_backend">свой бэкенд для лагера</a>
+          </li>
+          <li>
+            выкинул 7 самописных модулуей
+          </li>
+          <li>
+            PROFIT!!1
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="lager_problem">
+        <h2>
+          Внезапно
+        </h2>
+        <ul>
+          <li>
+            В ходе нагрузочного тестирования была выявлена сильная деградация производительности
+          </li>
+          <li>
+            observer показывает что у процесса lager_event растет очередь
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="sad_kitten">
+        <img src="img/cute-sad-kitten06.jpg" />
+      </section>
+      <section class="slide" id="klarna_investigation">
+        <h2>
+          Причины
+        </h2>
+        <ul>
+          <li>
+            внезапно оказалось, что gen_event-хендлеры это не отдельные процессы; они исполняются в контексте менеджера
+          </li>
+          <li>
+            чем больше очередь, тем дольше работает file:write
+          </li>
+          <li>
+            подробности&nbsp<a href="http://engineering.klarna.com/article/profiling-and-debugging-complex-erlang-system/">тут</a>
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="lager_solution">
+        <h2>
+          Решение
+        </h2>
+        <ol>
+          <li>
+            От чуваков из кларны: &nbsp<a href="https://github.com/klarna/lager_middleman_backend">lager_middleman_backend</a>
+          </li>
+          <li>
+            Наше решение: limiter
+            <ul>
+              <li>
+                перед тем как что-то записать в лог, limiter инкрементит счетчик в ets
+              </li>
+              <li>
+                сбрасывает счетчики раз в секунду
+              </li>
+              <li>
+                если счетчик превысил порог, то limiter дропает сообщение
+              </li>
+              <li>
+                если сообщение уникальное, то оно попадает в лог вне зависимости от интенсивности потока
+              </li>
+            </ul>
+          </li>
+        </ol>
+      </section>
+      <section class="slide" id="erts_bug">
+        <h2>
+          Байка третья. Вышел Erlang 17, давайте обновимся
+        </h2>
+        <ul>
+          <li>
+            В ходе нагрузочного тестирования была выявлена сильная деградация производительности
+          </li>
+          <li>
+            Расследование показало, что мы не можем писать в порты
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="despair">
+        <img src="img/cute-sad-kitten06.jpg" />
+      </section>
+      <section class="slide" id="erts_bug2">
+        <h2>
+          Расследование
+        </h2>
+        <ul>
+          <li>
+            Излоировали, повторили
+          </li>
+          <li>
+            Для воспроизведения необходимы два условия
+            <ol>
+              <li>
+                писать в порт асинхронно
+              </li>
+              <li>
+                писать в порт конкурентно
+              </li>
+            </ol>
+          </li>
+          <li>
+            Это наш основной кейс. Мы не могли писать в порт ни синхронно, ни из одного процесса
+          </li>
+          <li>
+            Повторялся, начиная с версии 16
+          </li>
+          <li>
+            Запилили тест и&nbsp<a href="https://github.com/erlang/otp/pull/440">PR в github</a>
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="success">
+        <h2>
+          OTP-12082
+        </h2>
+        <pre>A bug in the VM code implementing sending of signals to ports
+could cause the receiving port queue to remain in a busy state
+forever. When this state had been reached, processes sending
+command signals to the port either got suspended forever, or,
+if the nosuspend feature was used, always failed to send to
+the port.
+
+In order for this bug to be triggered on a port, one had to at
+least once utilize the nosuspend functionality when passing a
+signal to the port. This by either calling
+-- port_command(Port, Data, [nosuspend | Options]),
+-- erlang:send(Port, {PortOwner, {command, Data}}, [nosuspend | Options]),
+-- erlang:send_nosuspend(Port, {PortOwner, {command, Data}}), or
+-- erlang:send_nosuspend(Port, {PortOwner, {command, Data}}, Options).
+
+Thanks Vasily Demidenok for reporting the issue, and Sergey
+Kudryashov for providing a testcase.</pre>
+      </section>
+      <section class="slide" id="success_kid">
+        <img src="img/success-kid.jpg" />
+      </section>
+      <section class="slide" id="open-source">
+        <h2>
+          Напоследок
+        </h2>
+        <ul>
+          <li>
+            <a href="https://github.com/SputnikTeam/lager_scribe_backend">https://github.com/SputnikTeam/lager_scribe_backend</a>
+          </li>
+          <li>
+            <a href="https://github.com/SputnikTeam/beruang">https://github.com/SputnikTeam/lager_scribe_backend</a>
+          </li>
+          <li>
+            <a href="https://github.com/SputnikTeam/rebar_grizzly">https://github.com/SputnikTeam/lager_scribe_backend</a>
+          </li>
+        </ul>
+      </section>
+      <section class="slide" id="end">
+        <h2>
+          Конец
+        </h2>
+        <p>
+          Twitter: @tank_bohr
+        </p>
+        <br /><a href="http://tank-bohr.github.io/erlang_talk/">http://tank-bohr.github.io/erlang_talk/</a>
+      </section>
+      <div aria-role="navigation">
+        <a class="deck-prev-link" href="#" title="Previous">←</a><a class="deck-next-link" href="#" title="Next">→</a>
+      </div>
+      <p aria-role="status" class="deck-status">
+        <span class="deck-status-current"></span> /<span class="deck-status-total"></span>
+      </p>
+      <form action="." class="goto-form" method="get">
+        <label for="goto-slide">Go to slide:</label><input id="goto-slide" list="goto-datalist" name="slidenum" type="text" />
+        <datalist id="goto-datalist"></datalist>
+        <input type="submit" value="Go" />
+      </form>
+    </div>
+    <script src="vendor/deck.js/jquery.min.js"></script>
+    <script src="vendor/deck.js/core/deck.core.js"></script>
+    <script src="vendor/deck.js/extensions/menu/deck.menu.js"></script>
+    <script src="vendor/deck.js/extensions/goto/deck.goto.js"></script>
+    <script src="vendor/deck.js/extensions/status/deck.status.js"></script>
+    <script src="vendor/deck.js/extensions/navigation/deck.navigation.js"></script>
+    <script src="vendor/deck.js/extensions/scale/deck.scale.js"></script>
+    <script>
+      $(function() { $.deck('.slide'); });
+    </script>
+  </body>
+</html>
